@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', 'Urdu Typesetting', Tahoma, sans-serif;
+}
