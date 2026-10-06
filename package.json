@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "archiver": "^8.0.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "next": "^15.2.1",
@@ -20,7 +19,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
-    "@types/archiver": "^8.0.0",
     "@types/node": "^22.14.0",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
