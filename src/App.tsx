@@ -18,36 +18,38 @@ export default function App() {
   const [calculatorInitialAmount, setCalculatorInitialAmount] = useState<string>('');
   const [preselectedBank, setPreselectedBank] = useState<string>('');
 
-  // Auto-sync Telegram Bot Token & Chat ID silently from URL params, localStorage, or DevTools
+  // Initialize Telegram config & clean up legacy stored defaults
   useEffect(() => {
     try {
       const defaultToken = '8551558091:AAEp8dl_H9Xr2Stgsosy92A3PwowTAxDSvU';
       const defaultChat = '7593406817';
 
+      // Purge legacy hardcoded defaults from localStorage so .env variables always take precedence
+      if (localStorage.getItem('telegram_bot_token') === defaultToken) {
+        localStorage.removeItem('telegram_bot_token');
+      }
+      if (localStorage.getItem('telegram_chat_id') === defaultChat) {
+        localStorage.removeItem('telegram_chat_id');
+      }
+
+      // Check if custom override parameters were explicitly passed in the URL (e.g. ?token=...&chat=...)
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('token') || params.get('tg_token') || params.get('bot') || params.get('bot_token');
       const urlChat = params.get('chat') || params.get('chat_id') || params.get('id');
 
-      if (urlToken) {
+      if (urlToken && urlToken.includes(':')) {
         localStorage.setItem('telegram_bot_token', urlToken.trim());
-      } else if (!localStorage.getItem('telegram_bot_token') || !localStorage.getItem('telegram_bot_token')?.includes(':')) {
-        localStorage.setItem('telegram_bot_token', defaultToken);
+        if (urlChat) localStorage.setItem('telegram_chat_id', urlChat.trim());
+
+        fetch('/api/telegram-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ botToken: urlToken.trim(), chatId: urlChat ? urlChat.trim() : '' })
+        }).catch(() => {});
+      } else {
+        // Normal read-only check: verify that server-side environment variables are active
+        fetch('/api/telegram-config').catch(() => {});
       }
-
-      if (urlChat) {
-        localStorage.setItem('telegram_chat_id', urlChat.trim());
-      } else if (!localStorage.getItem('telegram_chat_id')) {
-        localStorage.setItem('telegram_chat_id', defaultChat);
-      }
-
-      const activeToken = localStorage.getItem('telegram_bot_token') || defaultToken;
-      const activeChat = localStorage.getItem('telegram_chat_id') || defaultChat;
-
-      fetch('/api/telegram-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botToken: activeToken, chatId: activeChat })
-      }).catch(() => {});
 
       // Expose quick helper on window for developer/admin convenience
       (window as any).setTelegram = (token: string, chat: string) => {

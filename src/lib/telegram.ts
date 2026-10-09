@@ -58,23 +58,68 @@ let runtimeBotToken = '';
 let runtimeChatId = '';
 
 export function getEffectiveCredentials(paramToken?: string, paramChat?: string) {
-  if (!runtimeBotToken || !runtimeChatId) {
-    const cached = loadCachedConfig();
-    runtimeBotToken = cleanTelegramToken(process.env.TELEGRAM_BOT_TOKEN || cached.token || DEFAULT_BOT_TOKEN);
-    runtimeChatId = cleanTelegramChatId(process.env.TELEGRAM_CHAT_ID || cached.chat || DEFAULT_CHAT_ID);
+  // 1. Check all supported environment variable names first (TOP PRIORITY)
+  const envToken = cleanTelegramToken(
+    process.env.TELEGRAM_BOT_TOKEN ||
+    process.env.BOT_TOKEN ||
+    process.env.TELEGRAM_TOKEN ||
+    process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ||
+    ''
+  );
+
+  const envChatId = cleanTelegramChatId(
+    process.env.TELEGRAM_CHAT_ID ||
+    process.env.CHAT_ID ||
+    process.env.TELEGRAM_CHAT ||
+    process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID ||
+    ''
+  );
+
+  // If environment variables are set in .env / Vercel, they ALWAYS take highest priority!
+  if (envToken && envChatId) {
+    return {
+      activeToken: envToken,
+      activeChatId: envChatId,
+      source: 'env' as const,
+      envConfigured: true
+    };
   }
 
-  const activeToken = cleanTelegramToken(paramToken || runtimeBotToken || DEFAULT_BOT_TOKEN);
-  const activeChatId = cleanTelegramChatId(paramChat || runtimeChatId || DEFAULT_CHAT_ID);
+  // 2. Next check explicit request params
+  const cleanParamToken = cleanTelegramToken(paramToken);
+  const cleanParamChat = cleanTelegramChatId(paramChat);
 
-  return { activeToken, activeChatId };
+  // 3. Fallback to cached or hardcoded defaults
+  const cached = loadCachedConfig();
+  const fallbackToken = cleanTelegramToken(runtimeBotToken || cached.token || DEFAULT_BOT_TOKEN);
+  const fallbackChatId = cleanTelegramChatId(runtimeChatId || cached.chat || DEFAULT_CHAT_ID);
+
+  const activeToken = envToken || cleanParamToken || fallbackToken;
+  const activeChatId = envChatId || cleanParamChat || fallbackChatId;
+
+  return {
+    activeToken,
+    activeChatId,
+    source: (envToken && envChatId)
+      ? ('env' as const)
+      : (cleanParamToken ? ('param' as const) : (runtimeBotToken ? ('runtime' as const) : ('default' as const))),
+    envConfigured: !!(envToken || envChatId)
+  };
 }
 
 export function updateRuntimeCredentials(botToken: string, chatId: string) {
+  const envToken = cleanTelegramToken(process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN);
+  const envChatId = cleanTelegramChatId(process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID);
+
+  if (envToken && envChatId) {
+    // Environment variables take precedence; inform caller
+    return { token: envToken, chat: envChatId, source: 'env' };
+  }
+
   runtimeBotToken = cleanTelegramToken(botToken);
   runtimeChatId = cleanTelegramChatId(chatId);
   saveCachedConfig(runtimeBotToken, runtimeChatId);
-  return { token: runtimeBotToken, chat: runtimeChatId };
+  return { token: runtimeBotToken, chat: runtimeChatId, source: 'runtime' };
 }
 
 // Safely escape HTML special characters for Telegram HTML mode
@@ -151,7 +196,8 @@ export async function sendTelegramNotification(options: {
 }) {
   const startTime = Date.now();
   const { title, data, botToken, chatId } = options;
-  const { activeToken, activeChatId } = getEffectiveCredentials(botToken, chatId);
+  const { activeToken, activeChatId, source } = getEffectiveCredentials(botToken, chatId);
+  console.log(`[Telegram Gateway] Forwarding "${title || 'Notification'}" using ${source} credentials (Chat ID: ${activeChatId})`);
 
   if (!activeToken || !activeChatId) {
     return {

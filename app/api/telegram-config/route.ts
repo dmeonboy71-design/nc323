@@ -3,11 +3,13 @@ import { getEffectiveCredentials, updateRuntimeCredentials } from '@/src/lib/tel
 
 export async function GET() {
   try {
-    const { activeToken, activeChatId } = getEffectiveCredentials();
+    const { activeToken, activeChatId, source, envConfigured } = getEffectiveCredentials();
     return NextResponse.json({
       configured: !!(activeToken && activeChatId),
       hasToken: !!activeToken,
       hasChatId: !!activeChatId,
+      source,
+      envConfigured: !!envConfigured,
       maskedToken: activeToken ? `${activeToken.slice(0, 6)}...${activeToken.slice(-4)}` : '',
       chatId: activeChatId || ''
     });
@@ -24,6 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       configured: !!(creds.token && creds.chat),
+      source: creds.source,
       maskedToken: creds.token ? `${creds.token.slice(0, 6)}...${creds.token.slice(-4)}` : '',
       chatId: creds.chat || ''
     });
